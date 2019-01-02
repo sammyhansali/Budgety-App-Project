@@ -46,7 +46,8 @@ var budgetController = (function() {
             inc: 0
         },
         budget: 0,
-        percentage: -1
+        percentage: -1,
+        tax: 0
     };
     
     return {
@@ -109,6 +110,25 @@ var budgetController = (function() {
             });
         },
         
+        //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        calculateTax: function() {
+            var taxableIncome; 
+            
+            taxableIncome = data.budget;
+            if (taxableIncome >= 7000 && taxableIncome < 35000) {
+                data.tax = 7.5;
+            } else if (taxableIncome >= 35000 && taxableIncome < 70000) {
+                data.tax = 15;
+            } else if (taxableIncome >= 85000){
+                data.tax = 22.5;
+            } else if (taxableIncome < 7000) {
+                data.tax = 0;
+            }
+            console.log(data.tax);
+            
+        },
+        
+        //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         getPercentages: function() {
             var allPerc = data.allItems.exp.map(function(cur) {
                 return cur.getPercentage();
@@ -121,7 +141,8 @@ var budgetController = (function() {
                 budget: data.budget,
                 totalInc: data.totals.inc,
                 totalExp: data.totals.exp,
-                percentage: data.percentage
+                percentage: data.percentage,
+                tax: data.tax            
             }  
         },
         
@@ -209,7 +230,24 @@ var UIController = (function() {
             document.querySelector(element).insertAdjacentHTML('beforeend', newHtml);
             
         },
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        addTaxListItem: function(obj) {
+            var html, newHtml, element;
+            
+            element = DOMstrings.expensesContainer;
+                
+            html = '<div class="item clearfix delete-me" id="exp-%id%"><div class="item__description">%description%</div><div class="right clearfix"><div class="item__value">%value%</div><div class="item__percentage">21%</div><div class="item__delete"><button class="item__delete--btn"><i class="ion-ios-close-outline"></i></button></div></div></div>';
+            
+            //Replace placeholder text with actual data
+            newHtml = html.replace('%id%', obj.id);
+            newHtml = newHtml.replace('%description%', obj.description);
+            newHtml = newHtml.replace('%value%', formatNumber(obj.value, 'exp'));
+            
+            //Insert HTML into the DOM
+            document.querySelector(element).insertAdjacentHTML('beforeend', newHtml);
+        },
         
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         deleteListItem: function(selectorID) {
             var el = document.getElementById(selectorID);
             el.parentNode.removeChild(el);
@@ -254,7 +292,15 @@ var UIController = (function() {
                 }
             });
         },
-        
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        displayTax: function(tax) {
+            
+            // Create a new Expense item with a value of budget * tax. ex: B= 100, t= 25%
+            
+            // description is : 'Income tax of: ' + tax + '%'. value is: budget * tax / 100.
+            
+        },
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         displayMonth: function() {
             var now, year, month, months;
 
@@ -315,7 +361,7 @@ var controller = (function(budgetCtrl, UICtrl) {
         // 1. Calc the budget
         budgetCtrl.calculateBudget();
         
-        // 2. Return the budget ( budget, totalInc, totalExp, and percentage)
+        // 2. Return the budget ( budget, totalInc, totalExp, and percentage, tax)
         var budget = budgetCtrl.getBudget();
         
         // 3. Display the budget on the UI
@@ -335,7 +381,39 @@ var controller = (function(budgetCtrl, UICtrl) {
         UICtrl.displayPercentages(percentages);
         
     };
-    
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    var updateTax = function() {
+        var items, budget, tax, newItem;
+        items = budgetCtrl.getBudget();
+        budget = items.budget;
+        
+        
+//        if () {
+//            
+//        } else if () {
+//            
+//        }
+        // 0. Delete the oldie
+        document.querySelector('.delete-me').parentNode.removeChild(document.querySelector('.delete-me'));
+        
+        // 1. Calculate the tax
+        budgetCtrl.calculateTax();
+        
+        // 2. Return the tax with getTax
+        tax = budgetCtrl.getBudget().tax;
+        
+        // 3. Add object to data.allItems.exp array.
+        newItem = budgetCtrl.addItem('exp', 'Income tax of ' + tax + '%', parseInt((budget * tax / 100)));
+        
+        // 4. Display the tax on the UI (responsible for creating new item)
+        UICtrl.addTaxListItem(newItem);
+        
+        console.log(items.tax);
+        updateBudget();
+        updatePercentages();
+        
+    };
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
     var ctrlAddItem = function () {
         var input, newItem;
         
@@ -357,6 +435,9 @@ var controller = (function(budgetCtrl, UICtrl) {
             
             // 6. Calculate and update percentages
             updatePercentages();
+            
+            // 7. Calculate and update tax
+            updateTax();
         }
     };
     
@@ -379,6 +460,14 @@ var controller = (function(budgetCtrl, UICtrl) {
             UICtrl.deleteListItem(itemID);
             
             // 3. Update and show the budget
+            updateBudget();
+            
+            // 4. Calculate and update percentages
+            updatePercentages();
+            
+            // 5. Calculate and update tax
+            updateTax();
+            
             updateBudget();
             
             // 4. Calculate and update percentages
